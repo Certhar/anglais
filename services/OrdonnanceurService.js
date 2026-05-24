@@ -181,6 +181,11 @@ export class OrdonnanceurService {
     const sourceMots = this._getSourceMots(sousFile);
     return sourceMots
       .filter(w => !this._userState.getWordProgress(childId, w.id))
+      // Exclure les mots déjà traités aujourd'hui (acquiredToday).
+      // Sans ce filtre, un enfant qui revient après avoir fini sa séance
+      // voit de nouveaux mots être ré-introduits → 2e cold lesson dans
+      // la journée. Cf. BIBLE §11 (audit Anglais 25).
+      .filter(w => !this._userState.isWordAcquiredToday(childId, w.id))
       .map(w => w.id);
   }
 

@@ -233,13 +233,28 @@ export class SessionComposerService {
     }
 
     // 2. Tirer des nouveaux pour compléter l'enveloppe lourde jusqu'à QUOTA_LOURD.
+    //    Note (Anglais 25) : tirerNouveaux filtre désormais acquiredToday,
+    //    donc après une séance complète il renverra [].
     const slotsRestants = Math.max(0, QUOTA_LOURD - chutes.length);
     const nouveaux = slotsRestants > 0
       ? this._ordonnanceur.tirerNouveaux(childId, slotsRestants, dateISO)
       : [];
 
     // 3. ColdLesson = chutes + nouveaux (cf. D3ter).
-    const coldLesson = [...chutes, ...nouveaux];
+    let coldLesson = [...chutes, ...nouveaux];
+
+    // 4. Mode "relecture" (Anglais 25, cf. BIBLE §11.4) :
+    //    Si l'enfant a déjà terminé sa séance du jour (chutes=[], nouveaux=[],
+    //    j1=[]) mais que acquiredToday n'est pas vide, on reconstitue la
+    //    coldLesson à partir des mots du jour pour qu'il puisse re-vérifier
+    //    une hésitation. SessionRecorderService est idempotent sur
+    //    acquiredToday, donc rejouer les exos n'a aucun effet pédagogique.
+    if (coldLesson.length === 0 && j1.length === 0) {
+      const acquiredToday = this._userState.getAcquiredToday(childId);
+      if (acquiredToday.length > 0) {
+        coldLesson = acquiredToday;
+      }
+    }
 
     return {
       type: "normale",

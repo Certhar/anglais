@@ -338,6 +338,70 @@ test("clearProgress(max) ne touche pas à julie", () => {
   eq(userState.getAllProgress("julie").size, 1);
 });
 
+test("clearChild remet un enfant à l'état vierge (table rase complète)", () => {
+  // On met du contenu partout pour papa
+  userState.setWordProgress("papa", 42, {
+    etape: "j7", dateIntroduction: "2026-05-10",
+    dateProchainRebrassage: "2026-05-17", historique: [],
+  });
+  userState.markLessonViewed("papa");
+  userState.recordExoSuccess("papa", 42, "mcq");
+  userState.markWordAcquiredToday("papa", 42);
+
+  // Sanity check avant clear
+  assert(userState.isLessonViewed("papa"), "lessonViewed posé avant clear");
+  eq(userState.getAllProgress("papa").size, 1);
+  eq(userState.getAcquiredToday("papa"), [42]);
+
+  userState.clearChild("papa");
+
+  // Après clear : tout est vierge, comme une première connexion.
+  assert(!userState.isLessonViewed("papa"), "lessonViewed remis à false");
+  eq(userState.getAllProgress("papa").size, 0);
+  eq(userState.getAcquiredToday("papa"), []);
+  eq(userState.getExosProgress("papa", 42), []);
+});
+
+test("clearChild(papa) ne touche pas aux autres enfants", () => {
+  // Papa a des données
+  userState.setWordProgress("papa", 1, {
+    etape: "j0", dateIntroduction: "2026-05-17",
+    dateProchainRebrassage: "2026-05-18", historique: [],
+  });
+  userState.markLessonViewed("papa");
+  // Max et Julie aussi, on doit les retrouver intacts
+  userState.setWordProgress("max", 7, {
+    etape: "j30", dateIntroduction: "2026-04-01",
+    dateProchainRebrassage: "2026-05-01", historique: [],
+  });
+  userState.markLessonViewed("max");
+  userState.setWordProgress("julie", 99, {
+    etape: "acquis", dateIntroduction: "2026-03-15",
+    dateProchainRebrassage: null, historique: [],
+  });
+
+  userState.clearChild("papa");
+
+  // Papa : vidé
+  eq(userState.getAllProgress("papa").size, 0);
+  assert(!userState.isLessonViewed("papa"));
+  // Max : intact
+  eq(userState.getAllProgress("max").size, 1);
+  eq(userState.getWordProgress("max", 7).etape, "j30");
+  assert(userState.isLessonViewed("max"), "max lessonViewed préservé");
+  // Julie : intacte
+  eq(userState.getAllProgress("julie").size, 1);
+  eq(userState.getWordProgress("julie", 99).etape, "acquis");
+});
+
+test("clearChild sur un enfant inexistant = no-op silencieux", () => {
+  // Aucun setup pour "fantome", on appelle directement clearChild.
+  userState.clearChild("fantome"); // ne doit pas planter
+  // Et ça ne crée pas d'entrée vide non plus
+  const raw = JSON.parse(localStorage.getItem("vocabulaire.userState.v1") || "{}");
+  assert(!("fantome" in raw), "pas d'entrée fantome créée");
+});
+
 group("7. Persistance (vérification du payload localStorage)");
 
 test("Une écriture est immédiatement reflétée dans localStorage", () => {

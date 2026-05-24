@@ -72,6 +72,11 @@ html, body {
   color: var(--color-text);
   overscroll-behavior: none;
   line-height: 1.5;
+  /* Forcer le mode clair : Samsung Internet et Chrome Android appliquent
+     un filtre dark mode auto qui désature les couleurs (drapeaux fades,
+     boutons ternes, etc.). On déclare explicitement light pour neutraliser.
+     Cf. BIBLE §11.6. */
+  color-scheme: light;
 }
 
 
@@ -246,7 +251,9 @@ button {
    Placé entre la consigne et le mot : indique la langue de la RÉPONSE
    attendue. L'enfant le voit dans le flux de lecture avant le contenu.
    SVG inline (cf. ui/icons.js) car les emojis drapeaux ne sont pas
-   rendus sur Chrome/Edge Windows. */
+   rendus sur Chrome/Edge Windows.
+   Anglais 25 : agrandi à 2rem (était 1.7rem) + bordure renforcée
+   pour gagner en visibilité. */
 .exercise-prompt-flag {
   margin: 0.1rem 0 0.4rem;
   display: flex;
@@ -254,9 +261,10 @@ button {
 }
 
 .exercise-prompt-flag .flag {
-  height: 1.7rem;
+  height: 2rem;
   width: auto;
   border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   display: block;
 }
@@ -331,7 +339,35 @@ button {
 .mcq-option:disabled { cursor: default; }
 
 /* Typing (saisie) */
+
+/* Rangée qui encadre l'input avec un drapeau de chaque côté.
+   Ancre visuellement la langue de réponse à l'endroit exact où l'enfant
+   va taper. Drapeaux solidaires de l'input → restent visibles avec lui
+   même quand le clavier mobile pousse le contenu vers le haut.
+   Cf. BIBLE §11.6 — fix UX drapeaux (Anglais 25). */
+.typing-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.typing-input-flag {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+.typing-input-flag .flag {
+  height: 1.8rem;
+  width: auto;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  display: block;
+}
+
 .typing-input {
+  flex: 1 1 auto;
   width: 100%;
   padding: 1rem 1.2rem;
   font-size: 1.2rem;
@@ -668,6 +704,13 @@ button {
   text-align: center;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  /* Réserve la hauteur de 2 lignes pour que les inputs restent alignés
+     même quand un label wrap (ex: "Participe passé" sur écran étroit).
+     Cf. Anglais 25 — bug cosmétique alignement forms_verb. */
+  min-height: 2.2em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .forms-input {
@@ -1301,6 +1344,29 @@ button {
   margin-top: 0.2rem;
 }
 
+/* Lien "reset" des profils débug (cf. isDebugProfile dans main.js).
+   Petit, discret, en bas du menu. Outil de test, pas une action de tous
+   les jours — on s'inspire du style de .home-screen-back. */
+.home-screen-debug-reset {
+  align-self: center;
+  margin-top: 1.5rem;
+  background: transparent;
+  border: none;
+  color: var(--color-text-light);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  opacity: 0.6;
+  transition: opacity var(--transition), color var(--transition);
+}
+
+.home-screen-debug-reset:hover {
+  opacity: 1;
+  color: var(--color-primary);
+}
+
 
 /* ==========================================================================
    6b. REVISION PLACEHOLDER SCREEN (provisoire — Pas 11)
@@ -1377,7 +1443,7 @@ button {
 @media (max-width: 480px) {
   .app-main { padding: 1rem; }
   .exercise-prompt-word { font-size: 1.6rem; }
-  .exercise-prompt-flag .flag { height: 1.4rem; }
+  .exercise-prompt-flag .flag { height: 1.6rem; }
   .forms-plural-schema-singular { font-size: 1.6rem; }
   .forms-plural-schema-target { font-size: 1.5rem; }
   .word-en { font-size: 1.8rem; }

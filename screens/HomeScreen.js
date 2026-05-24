@@ -59,6 +59,7 @@
  *     onStartExercises: (childId) => { ... },  // les deux modes, bouton "Exercices"
  *     onStartRevision:  (childId) => { ... },  // mode revision, bouton "Réviser"
  *     onSwitchChild:    () => { ... },         // bouton "Changer de profil"
+ *     onResetChild:     (childId) => { ... },  // bouton "reset" (profils débug uniquement)
  *   });
  *   screen.render(container);
  *   screen.destroy();
@@ -91,6 +92,11 @@ export class HomeScreen {
     // Permet au Router d'effacer la préférence "dernier enfant utilisé"
     // pour qu'au prochain démarrage, l'app revienne sur le choix d'enfant.
     this.onSwitchChild = options.onSwitchChild || (() => {});
+    // onResetChild : appelé quand un profil débug (cf. flag `isDebugProfile`
+    // dans CHILDREN) confirme la table rase de sa progression. Le Router
+    // se charge de l'effacement effectif (UserStateService.clearChild) puis
+    // re-render. Visible UNIQUEMENT sur les profils débug.
+    this.onResetChild = options.onResetChild || (() => {});
 
     // initialChildId (optionnel) : si fourni ET correspond à un enfant connu,
     // l'écran s'ouvre directement sur la vue 2 (menu de cet enfant) au lieu
@@ -214,6 +220,12 @@ export class HomeScreen {
             ` : ""}
           </button>
         </div>
+
+        ${child.isDebugProfile ? `
+          <button class="home-screen-debug-reset"
+                  data-action="reset-child"
+                  aria-label="Réinitialiser la progression de ce profil de test">reset</button>
+        ` : ""}
       </div>
     `;
 
@@ -270,6 +282,12 @@ export class HomeScreen {
             ` : ""}
           </button>
         </div>
+
+        ${child.isDebugProfile ? `
+          <button class="home-screen-debug-reset"
+                  data-action="reset-child"
+                  aria-label="Réinitialiser la progression de ce profil de test">reset</button>
+        ` : ""}
       </div>
     `;
 
@@ -304,6 +322,22 @@ export class HomeScreen {
         this._selectedChildId = null;
         this._renderChildPicker();
       });
+
+    // Lien "reset" : présent uniquement sur les profils débug
+    // (cf. flag `isDebugProfile`). Confirmation native window.confirm,
+    // puis on délègue au Router via onResetChild — c'est lui qui appelle
+    // userState.clearChild et re-monte HomeScreen pour rafraîchir.
+    const resetBtn = this.container.querySelector('[data-action="reset-child"]');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        const child = this.children.find(c => c.id === this._selectedChildId);
+        if (!child) return;
+        const msg = `Réinitialiser toute la progression de ${child.name} ?\n\nCette action est irréversible.`;
+        if (window.confirm(msg)) {
+          this.onResetChild(child.id);
+        }
+      });
+    }
   }
 
   /**

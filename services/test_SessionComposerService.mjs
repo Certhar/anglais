@@ -304,6 +304,59 @@ test("Jour normal : l'ordonnanceur peut rendre MOINS que demandé (corpus épuis
 });
 
 // ═══════════════════════════════════════════════════════════════════════
+// GROUPE 4bis — Fix Anglais 25 : mode relecture (cf. BIBLE §11.4)
+// ═══════════════════════════════════════════════════════════════════════
+group("4bis. Mode relecture (Anglais 25)");
+
+test("séance terminée + acquiredToday non vide → coldLesson = acquiredToday", () => {
+  // Scénario : papa a fini sa séance, les 5 mots sont dans acquiredToday.
+  // Pas de chutes, pas de j1, ordonnanceur renvoie [] (puisque filtré).
+  // Le composer doit reconstituer la coldLesson à partir de acquiredToday.
+  userState._getOrInit("papa");
+  for (const id of [101, 102, 103, 104, 105]) {
+    userState.markWordAcquiredToday("papa", id);
+  }
+  const ord = makeMockOrdonnanceur([[]]); // ordonnanceur filtre acquiredToday
+  const composer = makeComposer({ ordonnanceur: ord });
+  const r = composer.composerSeance("papa", "2026-05-24");
+  eq(r.type, "normale");
+  eq(r.chutes, []);
+  eq(r.nouveaux, []);
+  eq(r.j1, []);
+  eq(r.coldLesson.sort((a,b)=>a-b), [101, 102, 103, 104, 105]);
+});
+
+test("séance terminée + acquiredToday vide → coldLesson vraiment vide", () => {
+  // Scénario dégénéré : aucun mot acquis ce jour (corpus déjà épuisé,
+  // tout en révision longue, etc.). On ne déclenche pas la relecture.
+  const ord = makeMockOrdonnanceur([[]]);
+  const composer = makeComposer({ ordonnanceur: ord });
+  const r = composer.composerSeance("papa", "2026-05-24");
+  eq(r.coldLesson, []);
+  eq(r.chutes, []);
+  eq(r.nouveaux, []);
+});
+
+test("séance en cours (j1 non vide) → PAS de mode relecture", () => {
+  // Scénario : il y a des J+1 à faire aujourd'hui mais aucun nouveau
+  // (corpus épuisé par exemple). On ne déclenche PAS la relecture,
+  // la séance normale tourne avec coldLesson vide et j1 non vide.
+  userState.setWordProgress("papa", 50, {
+    etape: "j1", dateIntroduction: "2026-05-23",
+    dateProchainRebrassage: "2026-05-24", historique: [],
+  });
+  // Quelques acquiredToday (mais on est en milieu de séance) — ils ne
+  // doivent PAS atterrir dans coldLesson tant que j1 n'est pas vide.
+  userState.markWordAcquiredToday("papa", 999);
+  const ord = makeMockOrdonnanceur([[]]);
+  const composer = makeComposer({ ordonnanceur: ord });
+  const r = composer.composerSeance("papa", "2026-05-24");
+  eq(r.j1, [50]);
+  eq(r.coldLesson, []); // pas de relecture déclenchée
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════
 // GROUPE 5 — Étanchéité entre enfants
 // ═══════════════════════════════════════════════════════════════════════
 group("5. Étanchéité entre enfants");

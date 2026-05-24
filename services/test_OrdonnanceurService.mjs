@@ -616,6 +616,43 @@ test("deux enfants ont des tirages indépendants", () => {
 
 
 // ═══════════════════════════════════════════════════════════════════════
+// Fix Anglais 25 — filtre acquiredToday dans getMotsDisponibles
+// (cf. BIBLE §11.4)
+// ═══════════════════════════════════════════════════════════════════════
+
+test("getMotsDisponibles exclut les mots dans acquiredToday", () => {
+  const ordo = makeOrdo();
+  const dispoAvant = ordo.getMotsDisponibles("max", "boot");
+  const premierMot = dispoAvant[0];
+  // Marquer le premier mot comme acquis aujourd'hui (sans setWordProgress)
+  userState.markWordAcquiredToday("max", premierMot);
+  const dispoApres = ordo.getMotsDisponibles("max", "boot");
+  // Le mot ne doit plus être dans la liste des disponibles
+  eq(dispoApres.includes(premierMot), false,
+     `Le mot ${premierMot} (acquiredToday) ne doit plus être proposé`);
+  // Et la longueur doit avoir diminué de 1
+  eq(dispoApres.length, dispoAvant.length - 1);
+});
+
+test("tirerNouveaux ne ré-introduit pas un mot déjà fait aujourd'hui", () => {
+  const ordo = makeOrdo();
+  // Scénario : papa fait sa séance du jour, les 10 premiers mots sont
+  // marqués acquiredToday. Un re-clic sur "Démarrer" ne doit PAS lui
+  // ressortir 10 nouveaux mots de plus.
+  const seance1 = ordo.tirerNouveaux("papa", 10);
+  for (const id of seance1) {
+    userState.markWordAcquiredToday("papa", id);
+  }
+  const seance2 = ordo.tirerNouveaux("papa", 10);
+  // Aucun chevauchement
+  for (const id of seance1) {
+    eq(seance2.includes(id), false,
+       `Le mot ${id} (acquiredToday) ne doit pas être retiré`);
+  }
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════
 // Bilan
 // ═══════════════════════════════════════════════════════════════════════
 

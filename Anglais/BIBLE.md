@@ -4,8 +4,8 @@
 > Premier document à lire en début de session. Tout est dedans.
 > Le détail technique profond reste dans `architecture.md`, à consulter à la demande.
 >
-> **Dernière mise à jour** : 23 mai 2026 (Anglais 24 — Papa et Mamy ajoutés au picker pour la béta ; §11.2 suivi parental et §11.3 plateformes ajoutées).
-> **Statut du dépôt** : 312 / 312 tests verts. Pas 11 livré ; caillou §8.3 réglé ; audits pluriels et doublons appliqués ; main.js bascule sur words.canonical.json (le seul fichier de données restant) et expose 4 profils (Julie, Max, Papa, Mamy). Prochain travail : déploiement pour test terrain.
+> **Dernière mise à jour** : 24 mai 2026 (Anglais 25 — déployé sur GitHub Pages ; corpus 'to be' corrigé ; fix re-séance via mode relecture ; fix UX drapeaux + dark mode ; §11.4 à §11.6 ajoutées).
+> **Statut du dépôt** : 319 / 319 tests verts. Pas 11 livré ; caillou §8.3 réglé ; audits pluriels et doublons appliqués ; corpus 'to be' corrigé (was/been au lieu de was/were/been) ; mode relecture implémenté (filtre acquiredToday + coldLesson rejouable) ; drapeaux agrandis et collés au mot, mode clair forcé ; main.js bascule sur words.canonical.json et expose 4 profils (Julie, Max, Papa, Mamy). App déployée à https://certhar.github.io/anglais/. Prochain travail : retours terrain de la béta, sujets §11.5.
 
 ---
 
@@ -438,6 +438,106 @@ Décision liée à §11.1 (modèle d'utilisateurs) et à l'Étape PWA. Tant qu'o
 - Test complet sur iOS Safari (iPhone récent et plus ancien).
 - Audit Firefox : reprendre les bugs observés, voir si le moteur a évolué depuis mai 2026, décider si on relance l'effort ou si on documente Firefox comme non supporté.
 - Test sur navigateurs alternatifs Android (Samsung Internet, Brave) — probablement OK puisqu'ils dérivent de Chromium, à confirmer.
+
+### 11.4 Mode relecture — re-séance dans la journée (Anglais 25)
+
+**Le problème observé** : après avoir terminé sa séance du jour, l'enfant qui re-cliquait "Démarrer" ou "Exercices" voyait une **nouvelle cold lesson démarrer** avec 10 nouveaux mots — soit l'équivalent d'une 2e séance dans la journée. Cassait le rythme du spaced repetition.
+
+**La racine** : `OrdonnanceurService.getMotsDisponibles` filtrait sur `getWordProgress` (mot déjà en cycle d'apprentissage) mais **pas** sur `acquiredToday` (mot traité aujourd'hui). Donc juste après la séance, les mots du jour n'étaient pas encore en `wordProgress` (le rollover intervient au lendemain) et `tirerNouveaux` proposait simplement les 10 suivants de la file boot.
+
+**Le fix (deux étages)** :
+
+1. **`OrdonnanceurService.getMotsDisponibles`** : ajout d'un second filtre `!isWordAcquiredToday`. Empêche la re-introduction le jour même.
+
+2. **`SessionComposerService._composerNormale`** : ajout d'une **phase 4 "relecture"**. Si après calcul, `chutes=[]`, `nouveaux=[]` et `j1=[]` (= séance terminée), mais que `acquiredToday` n'est pas vide, on reconstitue `coldLesson = acquiredToday`. L'enfant peut ainsi re-cliquer "Démarrer" pour revoir les mots du jour, ou "Exercices" pour refaire les exos.
+
+3. **`ExerciseService._buildQueueSeanceNormale`** : ajout d'une branche `else if` qui régénère les exos lourds quand on est en mode relecture (coldLesson non vide, chutes/nouveaux/j1 vides).
+
+**Pourquoi c'est sûr** : `SessionRecorderService` est déjà **idempotent** sur `acquiredToday` (ligne 269-273). Un mot déjà acquiredToday est skip lors de la sauvegarde de la nouvelle séance. Donc rejouer les exos n'a **aucun** effet pédagogique ni sur la progression, ni sur les paliers, ni sur le rollover.
+
+**Comportement utilisateur final** :
+- Pendant la séance du jour → comportement inchangé.
+- À la fin de la séance → écran de résultat normal.
+- L'enfant revient sur Home, voit le bouton "Démarrer" → si re-clic, **la même cold lesson** (mots du jour) se relance pour relecture.
+- Bouton "Exercices" déverrouillé → exos régénérés sur les mots du jour, refaisables.
+- À minuit, rollover normal : `acquiredToday` est vidé, le lendemain est un vrai nouveau jour.
+
+**Tests ajoutés** (319/319 verts) :
+- 2 dans `test_OrdonnanceurService.mjs` (filtre acquiredToday, scénario re-tirage).
+- 2 dans `test_pas10_3_buildQueueSeance.mjs` (mode relecture côté ExerciseService).
+- 3 dans `test_SessionComposerService.mjs` (composer en mode relecture, garde-fous).
+
+### 11.5 Améliorations différées (issues du retour béta Anglais 25)
+
+**Sujets identifiés par Gauthier au cours de la béta** mais non traités tout de suite, pour rester sur des petits pas testables.
+
+**11.5.a — Switch "tous les exos / exos chutés"**
+
+Pendant la relecture, l'enfant devrait pouvoir choisir entre :
+- refaire **tous** les exos du jour (entraînement libre) ;
+- refaire **seulement les exos chutés** (consolidation ciblée).
+
+Décision UX : un switch en haut de l'écran exercices, **disponible uniquement quand la séance est terminée** (= mode relecture actif). Pas de switch en cours de séance pour ne pas induire de comportement avant que l'enfant ait fait l'exo une première fois.
+
+**Ce qui existe déjà** : la notion de "mot chuté" est claire dans le code (mot j0 dû le lendemain = chute). Donc le filtre pédagogique est simple : `mots chutés du jour = mots où l'enfant a échoué`.
+
+**Ce qui reste à concevoir** :
+- Comment distinguer un "mot chuté du jour" d'un "mot validé du jour" à l'intérieur d'`acquiredToday` (qui contient les deux) ? Probablement via `historique` du `WordProgress` créé par `introduireMot`/`enregistrerRebrassage` : si le dernier passage du jour est `success=false`, c'est une chute.
+- Où placer le switch dans l'UI ? Header du `ExerciseScreen` ? Toggle button ?
+- Persistance du choix : doit-il être mémorisé entre re-clics ? Probablement non (chaque entrée = choix neuf).
+
+**11.5.b — Message de fin de séance ("Bravo, c'est fini pour aujourd'hui !")**
+
+Quand l'enfant termine sa séance, afficher une page de félicitation explicite plutôt que de juste enchaîner sur le ResultScreen normal. Objectif pédagogique : marquer la satisfaction du travail accompli, et signaler que **revenir est optionnel** (relecture = bonus, pas obligation).
+
+**À concevoir** :
+- Où dans le flux ? Probablement entre `ResultScreen` (dernier exo) et le retour Home — un écran intermédiaire "FelicitationsScreen".
+- Quel critère "séance terminée" ? Le plus simple : si `acquiredToday` couvre tous les mots `coldLesson` initiaux (ou approximation similaire).
+- À montrer une seule fois par jour, ou à chaque fois que l'enfant finit ? Probablement une seule fois (sinon devient pénible si l'enfant fait plusieurs aller-retours).
+- Ne pas bloquer l'accès à la relecture pour autant.
+
+**11.5.c — Erreur 'be' (mémo)**
+
+Le corpus a été corrigé en Anglais 25 (`was/were/been` → `was/been`) pour produire `be / was / been` à l'exercice forms_verb. **Mais** le fichier `data/words.canonical.json` est auto-généré par `scripts/build_corpus.py` à partir de CSV. Si le pipeline est un jour relancé, la correction sera écrasée. À reporter dans `data/Fréquence_enrichi.csv` (ligne "to be") quand on remettra la main sur les sources et le script.
+
+**11.5.d — Modélisation "exo chuté" vs "mot chuté"**
+
+À l'occasion du switch (11.5.a), discuter avec Gauthier la granularité du suivi : aujourd'hui le système trace au niveau du **mot** (acquis/non-acquis). Si on veut un suivi plus fin ("Max rate systématiquement les `typing_fr` sur les noms féminins"), il faudra un nouveau service de stats par-exo. Probablement post-PWA, lié à §11.2 (suivi parental).
+
+### 11.6 Fix UX drapeaux + dark mode Android (Anglais 25)
+
+**Le problème observé** : sur Chrome Android (Samsung) en mode système dark, Gauthier rapportait :
+1. Drapeaux **délavés** (bleu et rouge pâles, gris au milieu) — quasi invisibles sur fond noir.
+2. **Erreurs de langue** (réponses en anglais quand on attendait français) parce que le drapeau était trop discret pour attirer l'attention.
+3. **Drapeau hors écran** quand le clavier virtuel s'ouvrait : la zone visible se réduisait, le drapeau (placé au-dessus du mot) sortait par le haut.
+
+**Diagnostic** :
+- Cause de la désaturation : Samsung Internet / Chrome Android applique un **filtre dark mode auto** sur les pages qui ne déclarent pas de thème. Ce filtre désature les couleurs vives pour "respecter" le fond sombre. Les SVG du drapeau perdent ~60% de saturation.
+- Cause du drapeau hors écran : structure HTML `consigne → drapeau → mot`. Quand le clavier ouvre, le mot reste visible (champ de saisie focusé) mais le drapeau au-dessus est repoussé hors viewport.
+- Cause profonde du problème UX : le drapeau, **séparé** visuellement du mot, est en marge du flux de lecture. L'œil va directement au mot (gros, centré, contenu principal) et zappe le drapeau.
+
+**Le fix (deux volets)** :
+
+1. **Forcer le mode clair** :
+   - Dans `index.html` : `<meta name="color-scheme" content="light">` + `<meta name="theme-color" content="#ffffff">`.
+   - Dans `ui/styles.css` (html, body) : `color-scheme: light;`.
+   Résultat : Android ne déclenche plus son filtre dark, les drapeaux retrouvent leurs vraies couleurs (bleu `#0055A4`, rouge `#EF4135`), toute la palette reprend sa vivacité.
+
+2. **Drapeau au-dessus du mot AGRANDI + drapeaux encadrant le champ de saisie** :
+   - Le drapeau standalone au-dessus du mot (`.exercise-prompt-flag`) est conservé mais agrandi de `1.7rem` à `2rem` (desktop) / `1.4rem` à `1.6rem` (mobile), avec une bordure renforcée pour mieux le détourer.
+   - **Décision Gauthier (Anglais 25)** : nouveau marquage à l'endroit exact où l'enfant tape. Dans `TextInputMode._render()`, l'`<input>` est encadré par **deux drapeaux** (un avant, un après) dans une rangée `.typing-input-row`. Le mapping est trivial : `_getLanguage()` retourne `"fr"` ou `"en"`, mappé vers `flag('fr')` ou `flag('gb')`. Drapeaux solidaires de l'input → restent visibles avec lui même quand le clavier mobile pousse le contenu.
+   - Modes touchés : `TypingFrMode` (drapeau 🇫🇷 ×2) et `AudioToTextMode` (drapeau 🇬🇧 ×2), tous deux via leur parent `TextInputMode`.
+   - **Pas de drapeau ajouté sur** : `McqMode` (les options sont déjà en français en clair), `TextToAudioMode` (pas de champ de saisie texte), `FormsVerbMode` (3 formes verbales = anglais évident par construction), `FormsPluralMode` (idem). Décision de sobriété : drapeau uniquement là où il y a ambiguïté possible.
+
+**Effets attendus** :
+- Drapeau impossible à manquer (deux drapeaux qui encadrent le champ là où l'enfant va taper).
+- Drapeaux restent visibles avec l'input même quand le clavier ouvre (solidaires en flex).
+- Couleurs vives partout (bleus, rouges, verts retrouvent leur éclat).
+
+**À tester en béta** :
+- Mode clair forcé : aspect global de l'app sur Chrome Android (rendu général, pas seulement les drapeaux).
+- Vérifier que les enfants distinguent bien la langue de réponse sur TypingFr et AudioToText après changement.
+- Si le drapeau au-dessus du mot devient redondant avec les drapeaux encadrant le champ, le retirer (mais pour la béta, double exposition = filet de sécurité).
 
 ---
 

@@ -21,6 +21,7 @@
 import { BaseEngine } from '../core/BaseEngine.js';
 import { compareAnswers, normalize } from '../core/helpers.js';
 import { events } from '../core/EventBus.js';
+import { flag } from '../ui/icons.js';
 
 
 // Configuration : seuils
@@ -131,23 +132,33 @@ export class TextInputMode extends BaseEngine {
   // =========================================================================
 
   _render() {
+    // Mapping langue → code drapeau : "fr" → drapeau français, "en" → Union Jack.
+    // Cf. BIBLE §11.6 — drapeaux encadrant le champ pour ancrer visuellement
+    // la langue de réponse à l'endroit exact où l'enfant va taper.
+    const langCode = this._getLanguage();
+    const flagCode = langCode === "fr" ? "fr" : "gb";
+
     this.container.innerHTML = `
       <div class="card">
         ${this._renderPrompt()}
         <div class="text-input-history" data-role="history"></div>
         <div class="text-input-revelation hidden" data-role="revelation"></div>
-        <input type="text"
-               class="typing-input"
-               data-role="input"
-               lang="${this._getLanguage()}"
-               autocomplete="off"
-               autocorrect="off"
-               autocapitalize="off"
-               spellcheck="false"
-               inputmode="text"
-               data-form-type="other"
-               data-1p-ignore
-               data-lpignore="true" />
+        <div class="typing-input-row">
+          <span class="typing-input-flag">${flag(flagCode)}</span>
+          <input type="text"
+                 class="typing-input"
+                 data-role="input"
+                 lang="${langCode}"
+                 autocomplete="off"
+                 autocorrect="off"
+                 autocapitalize="off"
+                 spellcheck="false"
+                 inputmode="text"
+                 data-form-type="other"
+                 data-1p-ignore
+                 data-lpignore="true" />
+          <span class="typing-input-flag">${flag(flagCode)}</span>
+        </div>
         <div class="text-input-actions">
           <button class="btn btn-large" data-action="validate">Valider</button>
           <button class="btn-give-up hidden" data-action="give-up">Je donne ma langue au chat</button>

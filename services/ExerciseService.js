@@ -248,6 +248,18 @@ export class ExerciseService {
     if (lourdIds.length > 0) {
       const lourdWords = wordRepo.getByIds(lourdIds);
       queue.push(...this.buildQueueLourd(lourdWords));
+    } else if (
+      (seance.coldLesson || []).length > 0
+      && (seance.j1 || []).length === 0
+    ) {
+      // Mode "relecture" (Anglais 25, cf. BIBLE §11.4) :
+      // séance du jour déjà terminée (chutes=[], nouveaux=[], j1=[]) mais
+      // coldLesson non vide → ce sont les acquiredToday présentés pour
+      // permettre à l'enfant de re-vérifier une hésitation. On régénère
+      // les exos lourds sur ces mêmes mots. Le recorder étant idempotent
+      // sur acquiredToday, aucun effet pédagogique.
+      const releuWords = wordRepo.getByIds(seance.coldLesson);
+      queue.push(...this.buildQueueLourd(releuWords));
     }
 
     // 3. Exos légers : J+1 dûs

@@ -94,6 +94,7 @@
  *   userState.recordWordOutcome(childId, wordId, {date, statut, resultat})
  *   userState.removeWordProgress(childId, wordId)
  *   userState.clearProgress(childId)
+ *   userState.clearChild(childId)        // table rase complète pour CET enfant
  *
  *   // État intra-jour (ajout Pas 9a — préalable au SessionRecorderService)
  *   userState.recordExoSuccess(childId, wordId, mode)
@@ -682,6 +683,39 @@ class UserStateService {
     const st = this._getOrInit(childId);
     st.progress = {};
     this._save();
+  }
+
+  /**
+   * Table rase complète pour UN enfant donné. Supprime l'intégralité de
+   * son état (progress, lessonViewed, lastUsedDate, exosProgress,
+   * acquiredToday) en mémoire ET dans localStorage. Les autres enfants
+   * ne sont PAS affectés.
+   *
+   * À la prochaine lecture (`_getOrInit`), l'enfant sera recréé avec
+   * un état vierge, exactement comme à la première connexion.
+   *
+   * Différences avec les méthodes voisines :
+   *   - clearProgress(childId) : ne vide QUE la progression long-terme
+   *     (le cycle de rebrassage), garde lessonViewed et les flags du jour.
+   *   - resetForNewDay(childId) : ne touche QUE les flags intra-jour,
+   *     garde la progression long-terme.
+   *   - clear() : table rase pour TOUS les enfants.
+   *   - clearChild(childId) [cette méthode] : table rase pour UN enfant.
+   *
+   * Usage prévu : bouton "reset" sur les profils de débug (cf. flag
+   * `isDebugProfile` sur le profil papa dans main.js) pour permettre
+   * de tester l'app depuis un état neuf sans toucher aux autres profils.
+   *
+   * No-op si l'enfant n'avait aucun état stocké.
+   *
+   * @param {string} childId
+   */
+  clearChild(childId) {
+    if (!childId) return;
+    if (childId in this._state) {
+      delete this._state[childId];
+      this._save();
+    }
   }
 
   // ───────────────────────────────────────────────────────────────────

@@ -302,6 +302,18 @@ export class Router {
         this._currentChildId = null;
         userState.clearLastChildId();
       },
+
+      // Bouton "reset" des profils débug (cf. flag `isDebugProfile` dans
+      // CHILDREN). HomeScreen gère la confirmation native, on n'arrive
+      // ici QUE si l'utilisateur a confirmé. On vide l'état de cet enfant
+      // et on re-monte HomeScreen pour rafraîchir l'affichage (verrou
+      // exos, etc.) — l'enfant reste sélectionné, on ne l'éjecte pas
+      // vers la vue "Qui es-tu ?".
+      onResetChild: (childId) => {
+        userState.clearChild(childId);
+        this._currentChildId = childId;
+        this.navigate('home');
+      },
     });
     this._currentScreen.render(this.container);
   }

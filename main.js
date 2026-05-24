@@ -55,7 +55,11 @@ import { SessionRecorderService } from './services/SessionRecorderService.js';
 const CHILDREN = [
   { id: 'julie', name: 'Julie' },
   { id: 'max',   name: 'Max'   },
-  { id: 'papa',  name: 'Papa'  }, // TODO béta : compte de test, à retirer après validation
+  // TODO béta : compte de test, à retirer après validation.
+  // isDebugProfile: true → fait apparaître un petit lien "reset" discret
+  // dans le menu de ce profil (HomeScreen) pour permettre une table rase
+  // de la progression pendant le testing. Cf. BIBLE §11.5 (prévu).
+  { id: 'papa',  name: 'Papa',  isDebugProfile: true },
   { id: 'mamy',  name: 'Mamy'  }, // TODO béta : démo maman, à retirer après validation
 ];
 
