@@ -1,0 +1,23 @@
+# Sauvegardes
+*.bak
+*.backup
+*~
+
+# Fichiers système Windows
+Thumbs.db
+Desktop.ini
+
+# Fichiers macOS (si jamais)
+.DS_Store
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+
+# Node (si jamais)
+node_modules/
+npm-debug.log
+
+# Sorties locales
+/outputs/

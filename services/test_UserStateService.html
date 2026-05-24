@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Tests UserStateService — extension progression</title>
+  <style>
+    body {
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      max-width: 900px;
+      margin: 2em auto;
+      padding: 0 1em;
+      background: #fafafa;
+      color: #222;
+    }
+    h1 { font-size: 1.4em; }
+    h2 {
+      font-size: 1.05em;
+      margin: 1.5em 0 0.4em;
+      color: #444;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 0.2em;
+    }
+    .test {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.85em;
+      padding: 0.15em 0;
+    }
+    .test.ok    { color: #1a7f37; }
+    .test.fail  { color: #c62828; font-weight: 600; }
+    .test .err {
+      display: block;
+      margin: 0.2em 0 0.4em 2em;
+      color: #444;
+      font-weight: normal;
+      white-space: pre-wrap;
+    }
+    .summary {
+      margin-top: 2em;
+      padding: 1em;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 1.05em;
+    }
+    .summary.ok   { background: #e6f4ea; color: #1a7f37; }
+    .summary.fail { background: #fdecea; color: #c62828; }
+    .actions { margin-top: 1em; }
+    button {
+      padding: 0.5em 1em;
+      font-size: 0.95em;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #aaa;
+      background: white;
+    }
+    button:hover { background: #f0f0f0; }
+    .note {
+      margin: 1em 0;
+      padding: 0.8em 1em;
+      background: #fff8dc;
+      border-left: 4px solid #e0c000;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tests UserStateService — extension progression par mot</h1>
+
+  <div class="note">
+    <strong>⚠️ Avant tout :</strong> ces tests écrivent dans la clé
+    <code>vocabulaire.userState.v1</code> de localStorage et la nettoient
+    entre chaque test. Si tu as déjà des données dans cette clé pour
+    l'app Vocabulaire, <strong>sauvegarde-les</strong> avant de lancer
+    (DevTools → Application → Local Storage → copier la valeur).
+  </div>
+
+  <div id="output"></div>
+  <div id="summary"></div>
+
+  <div class="actions">
+    <button onclick="location.reload()">Relancer les tests</button>
+    <button onclick="clearStorage()">Vider la clé localStorage</button>
+  </div>
+
+  <script>
+    function clearStorage() {
+      localStorage.removeItem("vocabulaire.userState.v1");
+      alert("Clé vidée.");
+    }
+  </script>
+
+  <script type="module">
+    // On importe directement le service. Doit être servi par un serveur
+    // local (les modules ES6 ne marchent pas en file:// dans la plupart
+    // des navigateurs). Si tu ouvres juste le HTML, voir l'option B
+    // en bas.
+    import { userState, UserStateService } from "./UserStateService.js";
+
+    const output = document.getElementById("output");
+    const summary = document.getElementById("summary");
+
+    let passed = 0;
+    let failed = 0;
+    let currentGroup = null;
+
+    function group(name) {
+      const h = document.createElement("h2");
+      h.textContent = name;
+      output.appendChild(h);
+      currentGroup = h;
+    }
+
+    function test(name, fn) {
+      userState.clear();
+      const line = document.createElement("div");
+      line.className = "test";
+      try {
+        fn();
+        line.classList.add("ok");
+        line.textContent = `  ✓ ${name}`;
+        passed++;
+      } catch (err) {
+        line.classList.add("fail");
+        line.textContent = `  ✗ ${name}`;
+        const errBox = document.createElement("span");
+        errBox.className = "err";
+        errBox.textContent = err.message;
+        line.appendChild(errBox);
+        failed++;
+      }
+      output.appendChild(line);
+    }
+
+    function eq(a, b, msg) {
+      const aStr = JSON.stringify(a);
+      const bStr = JSON.stringify(b);
+      if (aStr !== bStr) {
+        throw new Error(`${msg || "égalité"} — attendu ${bStr}, reçu ${aStr}`);
+      }
+    }
+    function assert(cond, msg) {
+      if (!cond) throw new Error(msg || "assertion échouée");
+    }
+
+    // ──── TESTS (identiques au harness Node) ────────────────────────────
+
+    group("1. Compatibilité avec l'API existante (non régression)");
+
+    test("markLessonViewed + isLessonViewed fonctionnent comme avant", () => {
+      assert(!userState.isLessonViewed("max"));
+      userState.markLessonViewed("max");
+      assert(userState.isLessonViewed("max"));
+    });
+
+    test("setLastChildId / getLastChildId / clearLastChildId", () => {
+      assert(userState.getLastChildId() === null);
+      userState.setLastChildId("max");
+      eq(userState.getLastChildId(), "max");
+      userState.clearLastChildId();
+      assert(userState.getLastChildId() === null);
+    });
+
+    test("comptes étanches entre enfants", () => {
+      userState.markLessonViewed("max");
+      assert(userState.isLessonViewed("max"));
+      assert(!userState.isLessonViewed("julie"));
+    });
+
+    group("2. getWordProgress / setWordProgress");
+
+    test("getWordProgress renvoie null si rien stocké", () => {
+      eq(userState.getWordProgress("max", 42), null);
+    });
+
+    test("setWordProgress + getWordProgress aller-retour", () => {
+      const entry = {
+        etape: "j0", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: "2026-05-18",
+        historique: [{date: "2026-05-17", statut: "j0", resultat: "ok"}],
+      };
+      userState.setWordProgress("max", 42, entry);
+      eq(userState.getWordProgress("max", 42), entry);
+    });
+
+    test("setWordProgress accepte wordId number ou string", () => {
+      const entry = {
+        etape: "j7", dateIntroduction: "2026-05-10",
+        dateProchainRebrassage: "2026-05-17", historique: [],
+      };
+      userState.setWordProgress("max", 42, entry);
+      eq(userState.getWordProgress("max", 42), entry);
+      eq(userState.getWordProgress("max", "42"), entry);
+    });
+
+    test("setWordProgress refuse une entrée invalide (étape inconnue)", () => {
+      userState.setWordProgress("max", 1, {
+        etape: "j5", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: null, historique: [],
+      });
+      eq(userState.getWordProgress("max", 1), null);
+    });
+
+    test("setWordProgress refuse une entrée invalide (date mal formée)", () => {
+      userState.setWordProgress("max", 1, {
+        etape: "j0", dateIntroduction: "17/05/2026",
+        dateProchainRebrassage: null, historique: [],
+      });
+      eq(userState.getWordProgress("max", 1), null);
+    });
+
+    test("setWordProgress accepte dateProchainRebrassage=null", () => {
+      const entry = {
+        etape: "acquis", dateIntroduction: "2026-01-01",
+        dateProchainRebrassage: null, historique: [],
+      };
+      userState.setWordProgress("max", 99, entry);
+      eq(userState.getWordProgress("max", 99), entry);
+    });
+
+    test("getWordProgress renvoie une COPIE", () => {
+      userState.setWordProgress("max", 1, {
+        etape: "j0", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: "2026-05-18",
+        historique: [{date: "2026-05-17", statut: "j0", resultat: "ok"}],
+      });
+      const got = userState.getWordProgress("max", 1);
+      got.etape = "j90";
+      got.historique.push({date: "9999-99-99", statut: "j90", resultat: "ok"});
+      const got2 = userState.getWordProgress("max", 1);
+      eq(got2.etape, "j0");
+      eq(got2.historique.length, 1);
+    });
+
+    group("3. recordWordOutcome");
+
+    test("recordWordOutcome crée l'entrée au premier passage", () => {
+      userState.recordWordOutcome("max", 42, {
+        date: "2026-05-17", statut: "j0", resultat: "ok"
+      });
+      const got = userState.getWordProgress("max", 42);
+      eq(got.etape, "j0");
+      eq(got.dateIntroduction, "2026-05-17");
+      eq(got.dateProchainRebrassage, null);
+      eq(got.historique.length, 1);
+    });
+
+    test("recordWordOutcome append au passage suivant", () => {
+      userState.recordWordOutcome("max", 42, {
+        date: "2026-05-17", statut: "j0", resultat: "ok"
+      });
+      userState.recordWordOutcome("max", 42, {
+        date: "2026-05-18", statut: "j1", resultat: "ok"
+      });
+      const got = userState.getWordProgress("max", 42);
+      eq(got.etape, "j1");
+      eq(got.dateIntroduction, "2026-05-17");
+      eq(got.historique.length, 2);
+    });
+
+    test("recordWordOutcome enregistre les chutes aussi", () => {
+      userState.recordWordOutcome("max", 7, {
+        date: "2026-05-17", statut: "j0", resultat: "chute"
+      });
+      eq(userState.getWordProgress("max", 7).historique[0].resultat, "chute");
+    });
+
+    test("recordWordOutcome refuse silencieusement un outcome malformé", () => {
+      userState.recordWordOutcome("max", 1, { date: "bad", statut: "j0", resultat: "ok" });
+      userState.recordWordOutcome("max", 2, { date: "2026-05-17", statut: "j5", resultat: "ok" });
+      userState.recordWordOutcome("max", 3, { date: "2026-05-17", statut: "j0", resultat: "pomme" });
+      eq(userState.getWordProgress("max", 1), null);
+      eq(userState.getWordProgress("max", 2), null);
+      eq(userState.getWordProgress("max", 3), null);
+    });
+
+    group("4. Listings");
+
+    function seedMax() {
+      userState.setWordProgress("max", 1, {
+        etape: "j0", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      userState.setWordProgress("max", 2, {
+        etape: "j1", dateIntroduction: "2026-05-16",
+        dateProchainRebrassage: "2026-05-23", historique: [],
+      });
+      userState.setWordProgress("max", 3, {
+        etape: "j7", dateIntroduction: "2026-05-10",
+        dateProchainRebrassage: "2026-05-17", historique: [],
+      });
+      userState.setWordProgress("max", 4, {
+        etape: "j30", dateIntroduction: "2026-04-17",
+        dateProchainRebrassage: "2026-05-15", historique: [],
+      });
+      userState.setWordProgress("max", 5, {
+        etape: "acquis", dateIntroduction: "2026-01-01",
+        dateProchainRebrassage: null, historique: [],
+      });
+    }
+
+    test("getAllProgress renvoie une Map avec clés Number", () => {
+      seedMax();
+      const all = userState.getAllProgress("max");
+      assert(all instanceof Map);
+      eq(all.size, 5);
+      assert(all.has(1));
+      eq(all.get(1).etape, "j0");
+    });
+
+    test("getAllProgress : mutation du résultat ne touche pas l'état", () => {
+      seedMax();
+      const all = userState.getAllProgress("max");
+      all.get(1).etape = "mutated";
+      all.delete(2);
+      eq(userState.getWordProgress("max", 1).etape, "j0");
+      eq(userState.getAllProgress("max").size, 5);
+    });
+
+    test("getWordsByEtape filtre correctement", () => {
+      seedMax();
+      eq(userState.getWordsByEtape("max", "j0").sort(), [1]);
+      eq(userState.getWordsByEtape("max", "j7").sort(), [3]);
+      eq(userState.getWordsByEtape("max", "acquis").sort(), [5]);
+      eq(userState.getWordsByEtape("max", "j90"), []);
+    });
+
+    test("getWordsByEtape avec étape invalide renvoie []", () => {
+      seedMax();
+      eq(userState.getWordsByEtape("max", "n'importe quoi"), []);
+    });
+
+    test("getWordsDueOn renvoie les mots dus à la date donnée", () => {
+      seedMax();
+      const due = userState.getWordsDueOn("max", "2026-05-17").sort();
+      eq(due, [3, 4]);
+    });
+
+    test("getWordsDueOn exclut les mots acquis", () => {
+      seedMax();
+      const due = userState.getWordsDueOn("max", "9999-12-31");
+      eq(due.sort(), [1, 2, 3, 4]);
+    });
+
+    test("getWordsDueOn avec date invalide renvoie []", () => {
+      seedMax();
+      eq(userState.getWordsDueOn("max", "demain"), []);
+    });
+
+    group("5. removeWordProgress / clearProgress");
+
+    test("removeWordProgress supprime juste l'entrée ciblée", () => {
+      seedMax();
+      userState.removeWordProgress("max", 3);
+      eq(userState.getWordProgress("max", 3), null);
+      eq(userState.getAllProgress("max").size, 4);
+    });
+
+    test("removeWordProgress sur un mot absent = no-op", () => {
+      seedMax();
+      userState.removeWordProgress("max", 9999);
+      eq(userState.getAllProgress("max").size, 5);
+    });
+
+    test("clearProgress vide la progression mais préserve les flags", () => {
+      seedMax();
+      userState.markLessonViewed("max");
+      userState.clearProgress("max");
+      eq(userState.getAllProgress("max").size, 0);
+      assert(userState.isLessonViewed("max"));
+    });
+
+    group("6. Étanchéité entre enfants");
+
+    test("La progression d'un enfant n'affecte pas l'autre", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "j0", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      eq(userState.getWordProgress("julie", 42), null);
+      eq(userState.getAllProgress("julie").size, 0);
+    });
+
+    test("clearProgress(max) ne touche pas à julie", () => {
+      userState.setWordProgress("max", 1, {
+        etape: "j0", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      userState.setWordProgress("julie", 1, {
+        etape: "j7", dateIntroduction: "2026-05-10",
+        dateProchainRebrassage: "2026-05-17", historique: [],
+      });
+      userState.clearProgress("max");
+      eq(userState.getAllProgress("max").size, 0);
+      eq(userState.getAllProgress("julie").size, 1);
+    });
+
+    group("7. Persistance");
+
+    test("Écriture immédiatement reflétée dans localStorage", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "j7", dateIntroduction: "2026-05-10",
+        dateProchainRebrassage: "2026-05-17",
+        historique: [{date: "2026-05-10", statut: "j0", resultat: "ok"}],
+      });
+      const raw = JSON.parse(localStorage.getItem("vocabulaire.userState.v1"));
+      eq(raw.max.progress["42"].etape, "j7");
+    });
+
+    test("Une nouvelle instance relit ce qui a été écrit (vrai reload)", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "j7", dateIntroduction: "2026-05-10",
+        dateProchainRebrassage: "2026-05-17",
+        historique: [{date: "2026-05-10", statut: "j0", resultat: "ok"}],
+      });
+      const fresh = new UserStateService();
+      eq(fresh.getWordProgress("max", 42).etape, "j7");
+    });
+
+    group("8. Tolérance aux données corrompues");
+
+    test("Entrée corrompue dans le storage ignorée à la lecture", () => {
+      const forged = {
+        max: {
+          lessonViewed: false,
+          lastUsedDate: "2026-05-17",
+          progress: {
+            "1": { etape: "j0", dateIntroduction: "2026-05-17", dateProchainRebrassage: "2026-05-18", historique: [] },
+            "2": { etape: "MARS", historique: "non" },
+            "3": null,
+          },
+        },
+      };
+      localStorage.setItem("vocabulaire.userState.v1", JSON.stringify(forged));
+      const fresh = new UserStateService();
+      eq(fresh.getWordProgress("max", 1).etape, "j0");
+      eq(fresh.getWordProgress("max", 2), null);
+      eq(fresh.getWordProgress("max", 3), null);
+      eq(fresh.getAllProgress("max").size, 1);
+    });
+
+    test("Migration douce : enfant existant sans champ progress", () => {
+      const oldState = {
+        max: { lessonViewed: true, lastUsedDate: "2026-05-17" },
+        _lastChildId: "max",
+      };
+      localStorage.setItem("vocabulaire.userState.v1", JSON.stringify(oldState));
+      const fresh = new UserStateService();
+      assert(fresh.isLessonViewed("max"));
+      eq(fresh.getAllProgress("max").size, 0);
+      fresh.recordWordOutcome("max", 1, {
+        date: "2026-05-17", statut: "j0", resultat: "ok"
+      });
+      eq(fresh.getWordProgress("max", 1).etape, "j0");
+    });
+
+    // ──── Récap ─────────────────────────────────────────────────────────
+    summary.className = "summary " + (failed === 0 ? "ok" : "fail");
+    summary.textContent = failed === 0
+      ? `✓ Tous les tests passent (${passed}/${passed})`
+      : `✗ ${failed} échec(s) sur ${passed + failed} tests`;
+
+    // Nettoyage final pour ne pas polluer
+    userState.clear();
+  </script>
+
+  <div class="note" style="margin-top: 2em;">
+    <strong>Comment lancer cette page</strong> — les modules ES6 ne marchent
+    pas en <code>file://</code>. Sers le dossier avec un petit serveur :
+    <pre>cd <em>dossier_du_test</em>
+python3 -m http.server 8000
+# puis ouvre http://localhost:8000/test_UserStateService.html</pre>
+    Ou avec node : <code>npx serve</code>.
+  </div>
+</body>
+</html>

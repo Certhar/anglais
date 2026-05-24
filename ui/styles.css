@@ -1,0 +1,1414 @@
+/**
+ * ui/styles.css
+ * 
+ * Styles globaux de l'application Vocabulaire.
+ * 
+ * Architecture CSS :
+ *   1. Variables (couleurs, espacements, ombres)
+ *   2. Reset et base
+ *   3. Layout général
+ *   4. Composants réutilisables (boutons, cartes, inputs)
+ *   5. Composants spécifiques aux exercices (modes)
+ *   6. Écrans (orchestration des modes)
+ *   7. Mobile
+ */
+
+
+/* ==========================================================================
+   1. VARIABLES
+   ========================================================================== */
+
+:root {
+  /* Couleurs principales */
+  --color-primary: #4169E1;
+  --color-primary-dark: #2c4eb8;
+  --color-accent: #FFA8D9;
+  --color-success: #5CB85C;
+  --color-error: #D9534F;
+  --color-warning: #F0AD4E;
+
+  /* Couleurs neutres */
+  --color-bg: #F5F7FA;
+  --color-card: #FFFFFF;
+  --color-text: #2c3e50;
+  --color-text-light: #7f8c8d;
+  --color-border: #E1E8ED;
+
+  /* Couleurs feedback */
+  --color-feedback-correct-bg: #E8F5E9;
+  --color-feedback-wrong-bg: #FFEBEE;
+  --color-note-text: #8a6d1c;
+  --color-note-bg: #FFF8E7;
+
+  /* Ombres */
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+
+  /* Rayons */
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  /* Transitions */
+  --transition: 0.2s ease;
+}
+
+
+/* ==========================================================================
+   2. RESET ET BASE
+   ========================================================================== */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  overscroll-behavior: none;
+  line-height: 1.5;
+}
+
+
+/* ==========================================================================
+   3. LAYOUT
+   ========================================================================== */
+
+.app {
+  max-width: 600px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background: var(--color-primary);
+  color: white;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: var(--shadow-md);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.app-header h1 {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.app-main {
+  flex: 1;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.progress-pill {
+  background: rgba(255,255,255,0.2);
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.header-back-btn {
+  background: rgba(255,255,255,0.2);
+  color: white;
+  border: none;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.header-back-btn:hover { background: rgba(255,255,255,0.3); }
+.hidden { display: none !important; }
+
+
+/* ==========================================================================
+   4. COMPOSANTS RÉUTILISABLES
+   ========================================================================== */
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: all var(--transition);
+}
+
+.btn {
+  padding: 0.9rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 600;
+  background: var(--color-primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+.btn:hover { background: var(--color-primary-dark); transform: translateY(-1px); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  background: var(--color-card);
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+}
+.btn-secondary:hover { background: #f0f4ff; }
+
+.btn-large {
+  width: 100%;
+  padding: 1.1rem 1.5rem;
+  font-size: 1.1rem;
+}
+
+.card {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
+}
+
+.audio-btn {
+  background: var(--color-accent);
+  color: white;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  border: none;
+}
+.audio-btn:hover { transform: scale(1.05); }
+.audio-btn:active { transform: scale(0.95); }
+.audio-btn.playing {
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: var(--shadow-md); }
+  50% { box-shadow: 0 0 0 12px rgba(255, 168, 217, 0.3); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* ==========================================================================
+   5. COMPOSANTS SPÉCIFIQUES AUX EXERCICES
+   ========================================================================== */
+
+.exercise-prompt {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.exercise-prompt-label {
+  color: var(--color-text-light);
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.exercise-prompt-instruction {
+  color: var(--color-text);
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 0.8rem;
+}
+
+.highlight-key {
+  color: var(--color-error);
+  font-weight: 800;
+}
+
+
+.exercise-prompt-word {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+/* Drapeau de consigne (mcq, typing_fr, audio_to_text, text_to_audio).
+   Placé entre la consigne et le mot : indique la langue de la RÉPONSE
+   attendue. L'enfant le voit dans le flux de lecture avant le contenu.
+   SVG inline (cf. ui/icons.js) car les emojis drapeaux ne sont pas
+   rendus sur Chrome/Edge Windows. */
+.exercise-prompt-flag {
+  margin: 0.1rem 0 0.4rem;
+  display: flex;
+  justify-content: center;
+}
+
+.exercise-prompt-flag .flag {
+  height: 1.7rem;
+  width: auto;
+  border-radius: 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  display: block;
+}
+
+/* Schéma "singulier → ?" du mode forms_plural.
+   Matérialise la transformation attendue : on part d'un mot, on doit en
+   produire un autre. Le "?" en couleur rappelle qu'il y a une réponse à
+   trouver, ce n'est pas une recopie. */
+.forms-plural-schema {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0.3rem 0;
+}
+
+.forms-plural-schema-singular {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.forms-plural-schema-arrow {
+  font-size: 1.4rem;
+  color: var(--color-text-light);
+}
+
+.forms-plural-schema-target {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--color-error);
+}
+
+/* MCQ */
+.mcq-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.7rem;
+}
+
+/* Variante 2 colonnes pour les listes longues (>= 6 options).
+   En dessous, on garde 1 colonne pour la scannabilité. */
+.mcq-options--cols-2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.mcq-option {
+  background: white;
+  border: 2px solid var(--color-border);
+  color: var(--color-text);
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius-md);
+  font-size: 1.1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.mcq-option:hover {
+  border-color: var(--color-primary);
+  background: #f0f4ff;
+}
+.mcq-option.correct {
+  background: var(--color-feedback-correct-bg);
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+.mcq-option.wrong {
+  background: var(--color-feedback-wrong-bg);
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+.mcq-option:disabled { cursor: default; }
+
+/* Typing (saisie) */
+.typing-input {
+  width: 100%;
+  padding: 1rem 1.2rem;
+  font-size: 1.2rem;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  color: var(--color-text);
+  background: white;
+  transition: border-color var(--transition);
+}
+.typing-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.typing-input.correct {
+  border-color: var(--color-success);
+  background: var(--color-feedback-correct-bg);
+}
+.typing-input.wrong {
+  border-color: var(--color-error);
+  background: var(--color-feedback-wrong-bg);
+}
+
+/* Historique des essais ratés (TextInputMode) */
+.text-input-history {
+  margin: 0.5rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.text-input-failed-attempt {
+  padding: 0.6rem 1rem;
+  font-size: 1.1rem;
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  animation: fadeIn 0.3s ease;
+}
+
+.text-input-failed-attempt.ignorance {
+  background: var(--color-feedback-wrong-bg);
+  color: var(--color-error);
+  border-left: 4px solid var(--color-error);
+}
+
+.text-input-failed-attempt.typo {
+  background: #FFF3E0;
+  color: #E65100;
+  border-left: 4px solid var(--color-warning);
+}
+
+/* Révélation de la réponse */
+.text-input-revelation {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: linear-gradient(135deg, #f0f4ff 0%, #d6e0ff 100%);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.text-input-revelation-label {
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+  margin-bottom: 0.3rem;
+}
+
+.text-input-revelation-answer {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: 0.5rem;
+}
+
+.text-input-revelation-hint {
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  font-style: italic;
+}
+
+/* Boutons d'actions du mode texte */
+.text-input-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.btn-give-up {
+  background: transparent;
+  color: var(--color-text-light);
+  border: 1px solid var(--color-border);
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-give-up:hover {
+  background: var(--color-feedback-wrong-bg);
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.mt-2 { margin-top: 1rem; }
+
+/* Feedback */
+.feedback {
+  text-align: center;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  margin: 1rem 0;
+  animation: fadeIn 0.3s ease;
+}
+.feedback.correct {
+  background: var(--color-feedback-correct-bg);
+  color: var(--color-success);
+}
+.feedback.wrong {
+  background: var(--color-feedback-wrong-bg);
+  color: var(--color-error);
+}
+
+
+/* ==========================================================================
+   COLD LESSON MODE — présentation d'un mot (récupéré du prototype)
+   ========================================================================== */
+
+.word-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.5rem;
+  box-shadow: var(--shadow-lg);
+  text-align: center;
+  /* Taille stable d'une carte à l'autre : pas de saut visuel quand on
+     passe d'un mot court à un mot avec une note longue. min-height (pas
+     height) pour autoriser l'étirement si vraiment nécessaire (note
+     pédagogique exceptionnellement longue). width: min(...) pour rester
+     fixe sur desktop mais ne pas déborder sur mobile étroit. */
+  width: min(22rem, 100%);
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+
+.word-en {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.word-prono {
+  font-size: 1.3rem;
+  color: var(--color-text-light);
+  font-style: italic;
+  font-family: "Cambria", "Georgia", serif;
+}
+
+.word-fr {
+  font-size: 1.6rem;
+  color: var(--color-text);
+  margin-top: 1rem;
+}
+
+.word-nature {
+  display: inline-block;
+  background: var(--color-bg);
+  color: var(--color-text-light);
+  padding: 0.2rem 0.7rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.word-note {
+  font-size: 0.9rem;
+  color: var(--color-note-text);
+  background: var(--color-note-bg);
+  border-left: 4px solid var(--color-warning);
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-sm);
+  margin-top: 0.8rem;
+  text-align: left;
+  line-height: 1.4;
+}
+
+/* Navigation Précédent / Suivant (utilisée par l'orchestrateur, pas par le mode) */
+.lesson-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.lesson-nav button { flex: 1; }
+
+/* Barre de progression (idem : orchestrateur) */
+.progress-bar {
+  height: 8px;
+  background: var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  transition: width 0.3s ease;
+}
+
+/* Page de fin "Bravo ✨" */
+.result-screen {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  animation: fadeIn 0.5s ease;
+}
+
+.result-emoji {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+  animation: bounce 0.8s ease;
+}
+
+@keyframes bounce {
+  0%   { transform: scale(0.3); opacity: 0; }
+  50%  { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+
+/* ==========================================================================
+   TEXT TO AUDIO MODE — prononciation auto-évaluée
+   ========================================================================== */
+
+.text-to-audio-hint {
+  text-align: center;
+  color: var(--color-text-light);
+  font-size: 0.95rem;
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+
+.text-to-audio-reveal {
+  background: linear-gradient(135deg, #f0f4ff 0%, #d6e0ff 100%);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  padding: 1.2rem;
+  margin: 1rem 0;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+}
+
+.text-to-audio-reveal-label {
+  font-size: 0.9rem;
+  color: var(--color-text-light);
+  margin-bottom: 0.5rem;
+}
+
+/* Wrapper de la phase 2 de text_to_audio : empile verticalement la carte
+   et le bloc d'auto-évaluation. Nécessaire parce que le stage parent de
+   ExerciseScreen est en flex row, qui sinon mettrait les deux blocs
+   côte à côte. */
+.text-to-audio-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Bloc d'auto-évaluation HORS de la carte, juste en dessous.
+   "Tu as bien prononcé ?" + deux boutons côte à côte :
+     - [↻ Je recommence] à gauche (action secondaire)
+     - [✓ J'ai bien dit]  à droite (action principale, comme un Suivant)
+   Le bouton "Je n'y arrive pas" a été supprimé : cf. philosophie
+   d'auto-évaluation du mode (on fait confiance à l'enfant, le filet
+   de sécurité est AudioToTextMode qui retrouvera le mot plus tard). */
+.text-to-audio-judge {
+  text-align: center;
+  margin-top: 1rem;
+  width: min(22rem, 100%);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.text-to-audio-judge-label {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: 0.7rem;
+}
+
+.text-to-audio-judge-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.text-to-audio-judge-buttons .btn {
+  flex: 1;
+  min-width: 8rem;
+}
+
+
+/* ==========================================================================
+   FORMS VERB MODE — 3 formes des verbes irréguliers
+   ========================================================================== */
+
+.forms-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.6rem;
+  margin: 1rem 0;
+}
+
+.forms-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.forms-label {
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.forms-input {
+  padding: 0.7rem 0.5rem;
+  font-size: 1.1rem;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-family: inherit;
+  color: var(--color-text);
+  background: white;
+  transition: border-color var(--transition);
+  width: 100%;
+}
+
+.forms-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.forms-input.correct {
+  border-color: var(--color-success);
+  background: var(--color-feedback-correct-bg);
+}
+
+.forms-input.wrong {
+  border-color: var(--color-error);
+  background: var(--color-feedback-wrong-bg);
+}
+
+
+/* ==========================================================================
+   6. ÉCRANS
+   ==========================================================================
+   Composants des écrans (orchestration des modes).
+   Convention : préfixe .exercise-screen- pour l'écran d'exercices,
+   à ne pas confondre avec .exercise-* qui appartient aux modes (section 5).
+*/
+
+/* ----- ExerciseScreen : layout général ----- */
+
+.exercise-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+/* ----- ExerciseScreen : header (progression + quitter) ----- */
+
+.exercise-screen-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--color-card);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.exercise-screen-abort {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-text-light);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.exercise-screen-abort:hover {
+  background: var(--color-bg);
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.exercise-screen-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.exercise-screen-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--color-border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.exercise-screen-progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0%,
+    var(--color-primary-dark) 100%
+  );
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  width: 0%;
+}
+
+.exercise-screen-progress-text {
+  flex-shrink: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-light);
+  font-variant-numeric: tabular-nums;
+  min-width: 4rem;
+  text-align: right;
+}
+
+/* ----- ExerciseScreen : stage (zone du mode courant) ----- */
+
+.exercise-screen-stage {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+}
+
+/* ----- ExerciseScreen : footer (bouton "Suivant" après échec) ----- */
+
+.exercise-screen-footer {
+  padding: 1rem 1.5rem 2rem;
+  display: flex;
+  justify-content: center;
+  min-height: 5rem;  /* évite que le footer "saute" quand le bouton apparaît */
+}
+
+.exercise-screen-footer .btn {
+  min-width: 12rem;
+}
+
+/* ----- ExerciseScreen : fin de session ----- */
+
+.exercise-screen-finish {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 1rem;
+  animation: exercise-screen-finish-in 0.5s ease;
+}
+
+.exercise-screen-finish-icon {
+  font-size: 4rem;
+}
+
+.exercise-screen-finish-text {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+@keyframes exercise-screen-finish-in {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* --------------------------------------------------------------------------
+   ResultScreen — bilan de fin de session
+   -------------------------------------------------------------------------- */
+
+.result-screen {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  animation: fadeIn 0.4s ease;
+}
+
+/* En-tête de célébration */
+.result-screen-celebration {
+  text-align: center;
+}
+
+.result-screen-icon {
+  font-size: 3.5rem;
+  line-height: 1;
+}
+
+.result-screen-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-top: 0.5rem;
+}
+
+/* Étoiles */
+.result-screen-stars {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.result-screen-star {
+  font-size: 3.4rem;
+  line-height: 1;
+}
+
+.result-screen-star.filled {
+  color: #FFB300;  /* or — volontairement plus vif que --color-warning */
+  text-shadow: 0 2px 6px rgba(255, 179, 0, 0.4);  /* halo doré discret */
+  animation: result-star-pop 0.4s ease backwards;
+}
+
+/* Petit décalage d'apparition entre les 3 étoiles */
+.result-screen-star.filled:nth-child(1) { animation-delay: 0.1s; }
+.result-screen-star.filled:nth-child(2) { animation-delay: 0.25s; }
+.result-screen-star.filled:nth-child(3) { animation-delay: 0.4s; }
+
+.result-screen-star.empty {
+  color: var(--color-border);
+}
+
+@keyframes result-star-pop {
+  from { transform: scale(0); opacity: 0; }
+  60%  { transform: scale(1.2); }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+/* Compteurs acquis / à revoir */
+.result-screen-counters {
+  display: flex;
+  justify-content: center;
+  gap: 2.5rem;
+}
+
+.result-screen-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.result-screen-counter-value {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-screen-counter-acquired {
+  color: var(--color-success);
+}
+
+.result-screen-counter-review {
+  color: var(--color-warning);
+}
+
+.result-screen-counter-label {
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+}
+
+/* Liste des mots */
+.result-screen-word-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.result-screen-word-row {
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--transition);
+}
+
+.result-screen-word-row:hover {
+  border-color: var(--color-primary);
+}
+
+.result-screen-word-row.acquired .result-screen-word-status {
+  color: var(--color-success);
+}
+
+.result-screen-word-row.to-review .result-screen-word-status {
+  color: var(--color-warning);
+}
+
+.result-screen-word-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+}
+
+.result-screen-word-status {
+  font-size: 1.1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.result-screen-word-en {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.result-screen-word-fr {
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+  flex: 1;
+}
+
+.result-screen-word-chevron {
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+  transition: transform var(--transition);
+}
+
+.result-screen-word-row.expanded .result-screen-word-chevron {
+  transform: rotate(180deg);
+}
+
+/* Détail dépliable : caché par défaut (display:none), affiché quand .expanded.
+   On utilise display plutôt qu'une transition max-height : c'est binaire et
+   fiable, pas de hauteur à deviner ni de cas "reste ouvert / reste fermé". */
+.result-screen-word-detail {
+  display: none;
+}
+
+.result-screen-word-row.expanded .result-screen-word-detail {
+  display: block;
+}
+
+.result-screen-exercise {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 1rem 0.5rem 2.7rem;
+  font-size: 0.9rem;
+  border-top: 1px solid var(--color-bg);
+}
+
+.result-screen-exercise-icon {
+  font-weight: 700;
+}
+
+.result-screen-exercise.ok .result-screen-exercise-icon {
+  color: var(--color-success);
+}
+
+.result-screen-exercise.ko .result-screen-exercise-icon {
+  color: var(--color-error);
+}
+
+.result-screen-exercise-mode {
+  color: var(--color-text-light);
+}
+
+/* Actions du bas */
+.result-screen-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+
+.result-screen-actions .btn {
+  width: 100%;
+}
+
+.result-screen-actions .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
+/* --------------------------------------------------------------------------
+   ColdLessonScreen — leçon froide (présentation des mots du jour)
+   -------------------------------------------------------------------------- */
+
+.cold-lesson-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--color-bg);
+}
+
+/* Header : croix + compteur (simple, pas de barre — pas d'enjeu) */
+.cold-lesson-screen-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--color-card);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.cold-lesson-screen-abort {
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+  color: var(--color-text-light);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.cold-lesson-screen-abort:hover {
+  background: var(--color-bg);
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+
+.cold-lesson-screen-counter {
+  flex: 1;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-light);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Petit spacer pour que le compteur soit vraiment centré malgré la croix */
+.cold-lesson-screen-header-spacer {
+  width: 2.5rem;
+  flex-shrink: 0;
+}
+
+/* Stage : zone où ColdLessonMode rend sa carte.
+   Pas de flex:1 : on veut que carte + footer forment un bloc compact en
+   haut, plutôt que d'étirer le stage pour pousser le footer en bas. */
+.cold-lesson-screen-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.5rem 1rem;
+}
+
+/* Footer : boutons de navigation, JUSTE en dessous de la carte (pas
+   collés en bas d'écran — la leçon froide est un flux continu carte+
+   boutons, on les veut visuellement groupés). */
+.cold-lesson-screen-footer {
+  padding: 0 1.5rem 2rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.cold-lesson-screen-footer .btn {
+  min-width: 9rem;
+}
+
+.cold-lesson-screen-footer .btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+
+/* --------------------------------------------------------------------------
+   HomeScreen — écran d'accueil (choix de l'enfant + menu Leçon/Exercices)
+   -------------------------------------------------------------------------- */
+
+.home-screen {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-height: 100vh;
+  animation: fadeIn 0.4s ease;
+}
+
+/* Bandeau de marque (vue 1) : "Vocabulaire" + "Qui es-tu ?" */
+.home-screen-brand {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.home-screen-brand-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1.1;
+}
+
+.home-screen-brand-subtitle {
+  font-size: 1.1rem;
+  color: var(--color-text-light);
+  margin-top: 0.5rem;
+}
+
+/* Liste des boutons d'enfants (vue 1) */
+.home-screen-children {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.home-screen-child {
+  background: var(--color-card);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.5rem;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.home-screen-child:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.home-screen-child:active {
+  transform: translateY(0);
+}
+
+/* Bouton retour (vue 2) */
+.home-screen-back {
+  align-self: flex-start;
+  background: transparent;
+  border: none;
+  color: var(--color-text-light);
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  transition: color var(--transition);
+}
+
+.home-screen-back:hover {
+  color: var(--color-primary);
+}
+
+/* Salutation (vue 2) */
+.home-screen-greeting {
+  text-align: center;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0.5rem 0 1rem;
+}
+
+/* Sous-titre de la salutation en mode révision : signale à l'enfant
+   qu'aujourd'hui est un jour de révision (les paliers longs peuvent
+   contenir beaucoup plus de mots qu'un jour normal). */
+.home-screen-greeting-mode {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--color-text-light);
+  margin-top: 0.3rem;
+}
+
+/* Boutons d'action (vue 2) : Leçon / Exercices */
+.home-screen-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.home-screen-action {
+  background: var(--color-card);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: inherit;
+}
+
+.home-screen-action:not(:disabled):hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.home-screen-action.locked {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.home-screen-action-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.home-screen-action-label {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.home-screen-action.locked .home-screen-action-label {
+  color: var(--color-text-light);
+}
+
+.home-screen-action-hint {
+  font-size: 0.85rem;
+  color: var(--color-text-light);
+  margin-top: 0.2rem;
+}
+
+
+/* ==========================================================================
+   6b. REVISION PLACEHOLDER SCREEN (provisoire — Pas 11)
+   ========================================================================== */
+
+.revision-placeholder {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  min-height: 100vh;
+  text-align: center;
+  animation: fadeIn 0.4s ease;
+}
+
+.revision-placeholder-emoji {
+  font-size: 4rem;
+  line-height: 1;
+  margin-top: 1rem;
+}
+
+.revision-placeholder-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.revision-placeholder-message {
+  font-size: 1.15rem;
+  color: var(--color-text-light);
+  line-height: 1.5;
+  margin-top: 0.5rem;
+}
+
+.revision-placeholder-detail {
+  font-size: 0.95rem;
+  color: var(--color-text-light);
+  font-style: italic;
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--color-card);
+  border-radius: var(--radius-md);
+}
+
+.revision-placeholder-back {
+  margin-top: 2rem;
+  background: var(--color-card);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 0.9rem 1.8rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all var(--transition);
+}
+
+.revision-placeholder-back:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+
+/* ==========================================================================
+   7. MOBILE
+   ========================================================================== */
+
+@media (max-width: 480px) {
+  .app-main { padding: 1rem; }
+  .exercise-prompt-word { font-size: 1.6rem; }
+  .exercise-prompt-flag .flag { height: 1.4rem; }
+  .forms-plural-schema-singular { font-size: 1.6rem; }
+  .forms-plural-schema-target { font-size: 1.5rem; }
+  .word-en { font-size: 1.8rem; }
+  .word-fr { font-size: 1.3rem; }
+  .forms-input { font-size: 1rem; padding: 0.6rem 0.3rem; }
+  .forms-grid { gap: 0.4rem; }
+
+  /* ExerciseScreen */
+  .exercise-screen-header { padding: 0.75rem 1rem; }
+  .exercise-screen-stage { padding: 1.5rem 1rem; }
+  .exercise-screen-progress-text { min-width: 3.5rem; font-size: 0.85rem; }
+
+  /* ResultScreen */
+  .result-screen { padding: 1.5rem 1rem; gap: 1.25rem; }
+  .result-screen-icon { font-size: 3rem; }
+  .result-screen-title { font-size: 1.2rem; }
+  .result-screen-star { font-size: 2.9rem; }
+  .result-screen-counters { gap: 2rem; }
+  .result-screen-word-fr { font-size: 0.85rem; }
+
+  /* ColdLessonScreen */
+  .cold-lesson-screen-header { padding: 0.75rem 1rem; }
+  .cold-lesson-screen-stage { padding: 1.5rem 1rem; }
+  .cold-lesson-screen-footer { padding: 0.75rem 1rem 1.5rem; }
+  .cold-lesson-screen-footer .btn { min-width: 7rem; font-size: 0.95rem; }
+
+  /* HomeScreen */
+  .home-screen { padding: 2rem 1rem 1.5rem; }
+  .home-screen-brand-title { font-size: 1.9rem; }
+  .home-screen-greeting { font-size: 1.5rem; }
+  .home-screen-child { padding: 1.2rem 1rem; font-size: 1.25rem; }
+  .home-screen-action-icon { font-size: 2.1rem; }
+  .home-screen-action-label { font-size: 1.15rem; }
+}

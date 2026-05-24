@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Tests RebrassageService</title>
+  <style>
+    body {
+      font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+      max-width: 900px;
+      margin: 2em auto;
+      padding: 0 1em;
+      background: #fafafa;
+      color: #222;
+    }
+    h1 { font-size: 1.4em; }
+    h2 {
+      font-size: 1.05em;
+      margin: 1.5em 0 0.4em;
+      color: #444;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 0.2em;
+    }
+    .test {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.85em;
+      padding: 0.15em 0;
+    }
+    .test.ok    { color: #1a7f37; }
+    .test.fail  { color: #c62828; font-weight: 600; }
+    .test .err {
+      display: block;
+      margin: 0.2em 0 0.4em 2em;
+      color: #444;
+      font-weight: normal;
+      white-space: pre-wrap;
+    }
+    .summary {
+      margin-top: 2em;
+      padding: 1em;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 1.05em;
+    }
+    .summary.ok   { background: #e6f4ea; color: #1a7f37; }
+    .summary.fail { background: #fdecea; color: #c62828; }
+    .actions { margin-top: 1em; }
+    button {
+      padding: 0.5em 1em;
+      font-size: 0.95em;
+      cursor: pointer;
+      border-radius: 4px;
+      border: 1px solid #aaa;
+      background: white;
+    }
+    button:hover { background: #f0f0f0; }
+    .note {
+      margin: 1em 0;
+      padding: 0.8em 1em;
+      background: #fff8dc;
+      border-left: 4px solid #e0c000;
+      font-size: 0.9em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tests RebrassageService — cycle j0/j1/j7/j30/j90</h1>
+
+  <div class="note">
+    <strong>⚠️ Avant tout :</strong> ces tests écrivent dans la clé
+    <code>vocabulaire.userState.v1</code> de localStorage et la nettoient
+    entre chaque test. Sauvegarde si tu as des données réelles dedans.
+  </div>
+
+  <div id="output"></div>
+  <div id="summary"></div>
+
+  <div class="actions">
+    <button onclick="location.reload()">Relancer les tests</button>
+    <button onclick="localStorage.removeItem('vocabulaire.userState.v1'); alert('Clé vidée.');">Vider la clé localStorage</button>
+  </div>
+
+  <script type="module">
+    import { userState } from "./UserStateService.js";
+    import { rebrassage } from "./RebrassageService.js";
+
+    const output = document.getElementById("output");
+    const summary = document.getElementById("summary");
+
+    let passed = 0;
+    let failed = 0;
+
+    function group(name) {
+      const h = document.createElement("h2");
+      h.textContent = name;
+      output.appendChild(h);
+    }
+    function test(name, fn) {
+      userState.clear();
+      const line = document.createElement("div");
+      line.className = "test";
+      try {
+        fn();
+        line.classList.add("ok");
+        line.textContent = `  ✓ ${name}`;
+        passed++;
+      } catch (err) {
+        line.classList.add("fail");
+        line.textContent = `  ✗ ${name}`;
+        const errBox = document.createElement("span");
+        errBox.className = "err";
+        errBox.textContent = err.message;
+        line.appendChild(errBox);
+        failed++;
+      }
+      output.appendChild(line);
+    }
+    function eq(a, b, msg) {
+      const aStr = JSON.stringify(a);
+      const bStr = JSON.stringify(b);
+      if (aStr !== bStr) {
+        throw new Error(`${msg || "égalité"} — attendu ${bStr}, reçu ${aStr}`);
+      }
+    }
+    function assert(cond, msg) {
+      if (!cond) throw new Error(msg || "assertion échouée");
+    }
+
+    // ──── TESTS (identiques au harness Node) ────────────────────────────
+
+    group("1. Helpers de date");
+
+    test("decalerSiJourOff : un mardi reste mardi", () => {
+      eq(rebrassage.decalerSiJourOff("2026-05-19"), "2026-05-19");
+    });
+    test("decalerSiJourOff : un mercredi devient jeudi", () => {
+      eq(rebrassage.decalerSiJourOff("2026-05-20"), "2026-05-21");
+    });
+    test("decalerSiJourOff : un dimanche reste dimanche", () => {
+      eq(rebrassage.decalerSiJourOff("2026-05-17"), "2026-05-17");
+    });
+    test("decalerSiJourOff : un samedi reste samedi", () => {
+      eq(rebrassage.decalerSiJourOff("2026-05-23"), "2026-05-23");
+    });
+    test("calculerDateProchainPalier j0 mardi → +1 = mercredi → décalé jeudi", () => {
+      eq(rebrassage.calculerDateProchainPalier("j0", "2026-05-19"), "2026-05-21");
+    });
+    test("calculerDateProchainPalier j1 → j7 (+6 jours)", () => {
+      eq(rebrassage.calculerDateProchainPalier("j1", "2026-05-18"), "2026-05-24");
+    });
+    test("calculerDateProchainPalier j7 → j30 : pas un mercredi", () => {
+      const result = rebrassage.calculerDateProchainPalier("j7", "2026-05-18");
+      const [y, m, d] = result.split("-").map(Number);
+      assert(new Date(y, m - 1, d).getDay() !== 3);
+    });
+    test("calculerDateProchainPalier j30 → j90 : pas un mercredi", () => {
+      const result = rebrassage.calculerDateProchainPalier("j30", "2026-05-18");
+      const [y, m, d] = result.split("-").map(Number);
+      assert(new Date(y, m - 1, d).getDay() !== 3);
+    });
+    test("calculerDateProchainPalier j90 → null (mot acquis)", () => {
+      eq(rebrassage.calculerDateProchainPalier("j90", "2026-05-18"), null);
+    });
+    test("calculerDateProchainPalier date invalide → null", () => {
+      eq(rebrassage.calculerDateProchainPalier("j0", "hier"), null);
+    });
+
+    group("2. introduireMot");
+
+    test("success=true → j1, prochain rebrassage demain", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-18", true);
+      const e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j1");
+      eq(e.dateIntroduction, "2026-05-18");
+      eq(e.dateProchainRebrassage, "2026-05-19");
+      eq(e.historique[0], { date: "2026-05-18", statut: "j0", resultat: "ok" });
+    });
+    test("success=true un mardi → demain = mercredi → décalé jeudi", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-19", true);
+      eq(userState.getWordProgress("max", 42).dateProchainRebrassage, "2026-05-21");
+    });
+    test("success=false (chute) → reste j0, revient demain", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-18", false);
+      const e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j0");
+      eq(e.dateProchainRebrassage, "2026-05-19");
+      eq(e.historique[0].resultat, "chute");
+    });
+    test("chute un mardi → demain = mercredi → décalé jeudi", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-19", false);
+      eq(userState.getWordProgress("max", 42).dateProchainRebrassage, "2026-05-21");
+    });
+    test("date invalide → no-op", () => {
+      rebrassage.introduireMot("max", 42, "demain", true);
+      eq(userState.getWordProgress("max", 42), null);
+    });
+
+    group("3. enregistrerRebrassage : succès");
+
+    test("j1 réussi → j7, dateIntroduction préservée", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-18", true);
+      rebrassage.enregistrerRebrassage("max", 42, "2026-05-19", true);
+      const e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j7");
+      eq(e.dateIntroduction, "2026-05-18");
+      eq(e.dateProchainRebrassage, "2026-05-25");
+    });
+    test("j7 réussi → j30", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "j7", dateIntroduction: "2026-05-10",
+        dateProchainRebrassage: "2026-05-17",
+        historique: [{ date: "2026-05-10", statut: "j0", resultat: "ok" }],
+      });
+      rebrassage.enregistrerRebrassage("max", 42, "2026-05-17", true);
+      const e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j30");
+      eq(e.dateProchainRebrassage, "2026-06-09");
+    });
+    test("j30 réussi → j90", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "j30", dateIntroduction: "2026-04-10",
+        dateProchainRebrassage: "2026-05-17", historique: [],
+      });
+      rebrassage.enregistrerRebrassage("max", 42, "2026-05-17", true);
+      const e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j90");
+      eq(e.dateProchainRebrassage, "2026-07-16");
+    });
+    test("j90 réussi → acquis, dateProchainRebrassage = null", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "j90", dateIntroduction: "2026-02-10",
+        dateProchainRebrassage: "2026-05-17", historique: [],
+      });
+      rebrassage.enregistrerRebrassage("max", 42, "2026-05-17", true);
+      const e = userState.getWordProgress("max", 42);
+      eq(e.etape, "acquis");
+      eq(e.dateProchainRebrassage, null);
+    });
+
+    group("4. enregistrerRebrassage : chutes (reset complet)");
+
+    test("Chute en j1 → RESET : j0, dateIntroduction écrasée", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-10", true);
+      rebrassage.enregistrerRebrassage("max", 42, "2026-05-18", false);
+      const e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j0");
+      eq(e.dateIntroduction, "2026-05-18");
+      eq(e.dateProchainRebrassage, "2026-05-19");
+      eq(e.historique.length, 2);
+    });
+    test("Chute en j7 → RESET", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "j7", dateIntroduction: "2026-05-01",
+        dateProchainRebrassage: "2026-05-17",
+        historique: [{ date: "2026-05-01", statut: "j0", resultat: "ok" }],
+      });
+      rebrassage.enregistrerRebrassage("max", 42, "2026-05-18", false);
+      const e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j0");
+      eq(e.dateIntroduction, "2026-05-18");
+    });
+    test("Chute en j30 → RESET", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "j30", dateIntroduction: "2026-04-01",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      rebrassage.enregistrerRebrassage("max", 42, "2026-05-18", false);
+      eq(userState.getWordProgress("max", 42).etape, "j0");
+    });
+    test("Chute en j90 → RESET (perd son acquisition)", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "j90", dateIntroduction: "2026-02-01",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      rebrassage.enregistrerRebrassage("max", 42, "2026-05-18", false);
+      eq(userState.getWordProgress("max", 42).etape, "j0");
+    });
+
+    group("5. Cas limites");
+
+    test("Rebrassage sur mot acquis = no-op", () => {
+      userState.setWordProgress("max", 42, {
+        etape: "acquis", dateIntroduction: "2026-01-01",
+        dateProchainRebrassage: null, historique: [],
+      });
+      rebrassage.enregistrerRebrassage("max", 42, "2026-05-18", false);
+      eq(userState.getWordProgress("max", 42).etape, "acquis");
+    });
+    test("Rebrassage sur mot inconnu = no-op", () => {
+      rebrassage.enregistrerRebrassage("max", 999, "2026-05-18", true);
+      eq(userState.getWordProgress("max", 999), null);
+    });
+    test("Rebrassage avec date invalide = no-op", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-18", true);
+      rebrassage.enregistrerRebrassage("max", 42, "demain", false);
+      eq(userState.getWordProgress("max", 42).etape, "j1");
+    });
+
+    group("6. getMotsDus");
+
+    function seedScenario() {
+      userState.setWordProgress("max", 1, {
+        etape: "j1", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      userState.setWordProgress("max", 2, {
+        etape: "j7", dateIntroduction: "2026-05-11",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      userState.setWordProgress("max", 3, {
+        etape: "j0", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      userState.setWordProgress("max", 4, {
+        etape: "j30", dateIntroduction: "2026-04-15",
+        dateProchainRebrassage: "2026-05-15", historique: [],
+      });
+      userState.setWordProgress("max", 5, {
+        etape: "j7", dateIntroduction: "2026-05-18",
+        dateProchainRebrassage: "2026-05-25", historique: [],
+      });
+      userState.setWordProgress("max", 6, {
+        etape: "acquis", dateIntroduction: "2026-01-01",
+        dateProchainRebrassage: null, historique: [],
+      });
+    }
+
+    test("sépare j1 et lourds correctement", () => {
+      seedScenario();
+      const dus = rebrassage.getMotsDus("max", "2026-05-18");
+      eq(dus.j1.sort(), [1]);
+      eq(dus.lourds.sort(), [2, 3, 4]);
+    });
+    test("exclut les mots pas encore dus et les acquis", () => {
+      seedScenario();
+      const dus = rebrassage.getMotsDus("max", "2026-05-18");
+      assert(!dus.j1.includes(5) && !dus.lourds.includes(5));
+      assert(!dus.j1.includes(6) && !dus.lourds.includes(6));
+    });
+    test("date future englobe tout sauf acquis", () => {
+      seedScenario();
+      const dus = rebrassage.getMotsDus("max", "9999-12-31");
+      eq(dus.j1.sort(), [1]);
+      eq(dus.lourds.sort(), [2, 3, 4, 5]);
+    });
+    test("date invalide → vide", () => {
+      seedScenario();
+      eq(rebrassage.getMotsDus("max", "?"), { j1: [], lourds: [] });
+    });
+
+    group("7. hasDetteConsolidation");
+
+    test("true si un j7/j30/j90 est dû", () => {
+      seedScenario();
+      assert(rebrassage.hasDetteConsolidation("max", "2026-05-18"));
+    });
+    test("false avec seulement j1 dus", () => {
+      userState.clear();
+      userState.setWordProgress("max", 1, {
+        etape: "j1", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      assert(!rebrassage.hasDetteConsolidation("max", "2026-05-18"));
+    });
+    test("false avec seulement j0 (chutes)", () => {
+      userState.clear();
+      userState.setWordProgress("max", 1, {
+        etape: "j0", dateIntroduction: "2026-05-17",
+        dateProchainRebrassage: "2026-05-18", historique: [],
+      });
+      assert(!rebrassage.hasDetteConsolidation("max", "2026-05-18"));
+    });
+    test("false si rien à jour", () => {
+      assert(!rebrassage.hasDetteConsolidation("max", "2026-05-18"));
+    });
+
+    group("8. Cycle complet d'un mot");
+
+    test("Trajet nominal j0 → acquis", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-18", true);
+      let e = userState.getWordProgress("max", 42);
+      rebrassage.enregistrerRebrassage("max", 42, e.dateProchainRebrassage, true);
+      e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j7");
+      rebrassage.enregistrerRebrassage("max", 42, e.dateProchainRebrassage, true);
+      e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j30");
+      rebrassage.enregistrerRebrassage("max", 42, e.dateProchainRebrassage, true);
+      e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j90");
+      rebrassage.enregistrerRebrassage("max", 42, e.dateProchainRebrassage, true);
+      e = userState.getWordProgress("max", 42);
+      eq(e.etape, "acquis");
+      eq(e.dateIntroduction, "2026-05-18");
+      eq(e.historique.length, 5);
+    });
+    test("Chute à mi-parcours = reset complet", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-18", true);
+      let e = userState.getWordProgress("max", 42);
+      rebrassage.enregistrerRebrassage("max", 42, e.dateProchainRebrassage, true);
+      e = userState.getWordProgress("max", 42);
+      const chuteDate = e.dateProchainRebrassage;
+      rebrassage.enregistrerRebrassage("max", 42, chuteDate, false);
+      e = userState.getWordProgress("max", 42);
+      eq(e.etape, "j0");
+      eq(e.dateIntroduction, chuteDate);
+    });
+
+    group("9. Étanchéité entre enfants");
+
+    test("Le cycle d'un enfant n'affecte pas l'autre", () => {
+      rebrassage.introduireMot("max", 42, "2026-05-18", true);
+      eq(userState.getWordProgress("julie", 42), null);
+      rebrassage.introduireMot("julie", 42, "2026-05-18", false);
+      eq(userState.getWordProgress("max", 42).etape, "j1");
+      eq(userState.getWordProgress("julie", 42).etape, "j0");
+    });
+
+    // ──── Récap ─────────────────────────────────────────────────────────
+    summary.className = "summary " + (failed === 0 ? "ok" : "fail");
+    summary.textContent = failed === 0
+      ? `✓ Tous les tests passent (${passed}/${passed})`
+      : `✗ ${failed} échec(s) sur ${passed + failed} tests`;
+
+    userState.clear();
+  </script>
+</body>
+</html>
